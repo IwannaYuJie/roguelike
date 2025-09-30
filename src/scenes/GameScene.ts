@@ -42,9 +42,10 @@ export class GameScene extends Phaser.Scene {
   // 游戏状态
   private gameTime: number = 0
   private spawnTimer: number = 0
-  private spawnInterval: number = 2000 // 每2秒生成一波敌人
+  private spawnInterval: number = 3000 // 每3秒生成一波敌人
   private killCount: number = 0
   private isWaveSystemActive: boolean = true // 是否启用波次系统
+  private enableContinuousSpawn: boolean = true // 是否启用持续生成
 
   constructor() {
     super('GameScene')
@@ -245,8 +246,8 @@ export class GameScene extends Phaser.Scene {
       this.conductorSystem.update(time, delta)
     }
 
-    // 基础敌人生成系统（作为波次系统的补充）
-    if (!this.isWaveSystemActive) {
+    // 基础敌人生成系统（作为波次系统的补充，持续生成敌人）
+    if (this.enableContinuousSpawn) {
       this.spawnTimer += delta
       if (this.spawnTimer >= this.spawnInterval) {
         this.spawnTimer = 0

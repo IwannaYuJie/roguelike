@@ -425,6 +425,12 @@ export class AbilitySystem {
     const projectileCount = this.getAbilityProjectileCount(ability)
     const damage = this.getAbilityDamage(ability)
 
+    // 特殊技能处理
+    if (ability.definition.id === 'lightningchain') {
+      this.castLightningChain(ability, damage)
+      return
+    }
+
     // 根据投射物数量决定发射模式
     if (projectileCount === 1) {
       // 单发：朝最近的敌人
@@ -442,6 +448,109 @@ export class AbilitySystem {
     // 触发玩家的攻击请求事件
     // 注意：实际的投射物创建由Player的fireProjectile方法处理
     this.player.emit('requestAttack')
+  }
+
+  /**
+   * 施放闪电链（特殊效果）。
+   */
+  private castLightningChain(ability: AbilityInstance, damage: number): void {
+    // 获取GameScene中的敌人组
+    const gameScene = this.scene as any
+    const enemies = gameScene.enemies
+
+    if (!enemies || enemies.getChildren().length === 0) return
+
+    // 找到最近的敌人作为起点
+    let nearestEnemy: any = null
+    let nearestDistance = 400
+
+    enemies.getChildren().forEach((enemyObj: any) => {
+      const distance = Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        enemyObj.x,
+        enemyObj.y
+      )
+      if (distance < nearestDistance) {
+        nearestDistance = distance
+        nearestEnemy = enemyObj
+      }
+    })
+
+    if (!nearestEnemy) return
+
+    // 创建闪电链效果
+    const chainCount = Math.min(3 + ability.level, 8) // 最多连锁8次
+    const hitEnemies = new Set<any>()
+    let currentTarget = nearestEnemy
+
+    for (let i = 0; i < chainCount; i++) {
+      if (!currentTarget || hitEnemies.has(currentTarget)) break
+
+      // 造成伤害
+      currentTarget.takeDamage(damage, 'lightning')
+      hitEnemies.add(currentTarget)
+
+      // 绘制闪电效果
+      const startX = i === 0 ? this.player.x : hitEnemies.values().next().value.x
+      const startY = i === 0 ? this.player.y : hitEnemies.values().next().value.y
+      this.drawLightningEffect(startX, startY, currentTarget.x, currentTarget.y)
+
+      // 寻找下一个目标
+      let nextTarget: any = null
+      let nextDistance = 300
+
+      enemies.getChildren().forEach((enemyObj: any) => {
+        if (hitEnemies.has(enemyObj)) return
+        const distance = Phaser.Math.Distance.Between(
+          currentTarget.x,
+          currentTarget.y,
+          enemyObj.x,
+          enemyObj.y
+        )
+        if (distance < nextDistance) {
+          nextDistance = distance
+          nextTarget = enemyObj
+        }
+      })
+
+      currentTarget = nextTarget
+    }
+  }
+
+  /**
+   * 绘制闪电效果。
+   */
+  private drawLightningEffect(x1: number, y1: number, x2: number, y2: number): void {
+    const graphics = this.scene.add.graphics()
+    graphics.lineStyle(3, 0xffff00, 1)
+    graphics.setDepth(100)
+
+    // 绘制锯齿状闪电
+    const segments = 5
+    const dx = (x2 - x1) / segments
+    const dy = (y2 - y1) / segments
+
+    graphics.beginPath()
+    graphics.moveTo(x1, y1)
+
+    for (let i = 1; i < segments; i++) {
+      const offsetX = Phaser.Math.Between(-10, 10)
+      const offsetY = Phaser.Math.Between(-10, 10)
+      graphics.lineTo(x1 + dx * i + offsetX, y1 + dy * i + offsetY)
+    }
+
+    graphics.lineTo(x2, y2)
+    graphics.strokePath()
+
+    // 添加发光效果
+    graphics.lineStyle(6, 0xffff00, 0.3)
+    graphics.strokePath()
+
+    // 0.2秒后销毁
+    this.scene.time.delayedCall(200, () => {
+      graphics.destroy()
+    })
   }
 
   /**

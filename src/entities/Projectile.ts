@@ -136,9 +136,13 @@ export class FireProjectile extends Projectile {
     // 创建占位图形
     if (!scene.textures.exists('fire_projectile')) {
       const graphics = scene.add.graphics()
-      graphics.fillStyle(0xff4400, 1)
-      graphics.fillCircle(0, 0, 6)
-      graphics.generateTexture('fire_projectile', 12, 12)
+      // 外圈橙色
+      graphics.fillStyle(0xff6600, 1)
+      graphics.fillCircle(0, 0, 8)
+      // 内圈黄色
+      graphics.fillStyle(0xffff00, 1)
+      graphics.fillCircle(0, 0, 4)
+      graphics.generateTexture('fire_projectile', 16, 16)
       graphics.destroy()
     }
 
@@ -149,8 +153,30 @@ export class FireProjectile extends Projectile {
       speed: 350,
     })
 
-    // 添加发光效果
+    // 添加发光效果和尾迹
     this.setBlendMode(Phaser.BlendModes.ADD)
+    this.setScale(1.2)
+    
+    // 添加粒子尾迹
+    this.createFireTrail()
+  }
+
+  private createFireTrail(): void {
+    const particles = this.scene.add.particles(this.x, this.y, 'particle', {
+      speed: { min: 20, max: 50 },
+      scale: { start: 0.4, end: 0 },
+      tint: [0xff4400, 0xff6600, 0xffff00],
+      lifespan: 300,
+      frequency: 50,
+      follow: this,
+      blendMode: 'ADD',
+    })
+
+    // 当投射物销毁时停止粒子
+    this.once('destroy', () => {
+      particles.stop()
+      this.scene.time.delayedCall(300, () => particles.destroy())
+    })
   }
 }
 
@@ -163,9 +189,14 @@ export class FrostProjectile extends Projectile {
     // 创建占位图形
     if (!scene.textures.exists('frost_projectile')) {
       const graphics = scene.add.graphics()
-      graphics.fillStyle(0x44aaff, 1)
-      graphics.fillCircle(0, 0, 6)
-      graphics.generateTexture('frost_projectile', 12, 12)
+      // 冰晶形状
+      graphics.fillStyle(0x88ddff, 1)
+      graphics.fillCircle(0, 0, 7)
+      graphics.fillStyle(0xaaffff, 1)
+      graphics.fillCircle(0, 0, 4)
+      graphics.fillStyle(0xffffff, 1)
+      graphics.fillCircle(0, 0, 2)
+      graphics.generateTexture('frost_projectile', 14, 14)
       graphics.destroy()
     }
 
@@ -174,6 +205,27 @@ export class FrostProjectile extends Projectile {
       elementType: 'frost',
       lifespan: 2500,
       speed: 300,
+    })
+
+    this.setScale(1.1)
+    // 添加冰霜尾迹
+    this.createFrostTrail()
+  }
+
+  private createFrostTrail(): void {
+    const particles = this.scene.add.particles(this.x, this.y, 'particle', {
+      speed: { min: 10, max: 30 },
+      scale: { start: 0.3, end: 0 },
+      tint: [0x44aaff, 0x88ddff, 0xffffff],
+      lifespan: 400,
+      frequency: 60,
+      follow: this,
+      alpha: { start: 0.8, end: 0 },
+    })
+
+    this.once('destroy', () => {
+      particles.stop()
+      this.scene.time.delayedCall(400, () => particles.destroy())
     })
   }
 }
@@ -187,9 +239,12 @@ export class LightningProjectile extends Projectile {
     // 创建占位图形
     if (!scene.textures.exists('lightning_projectile')) {
       const graphics = scene.add.graphics()
+      // 闪电球
       graphics.fillStyle(0xffff00, 1)
-      graphics.fillCircle(0, 0, 5)
-      graphics.generateTexture('lightning_projectile', 10, 10)
+      graphics.fillCircle(0, 0, 6)
+      graphics.fillStyle(0xffffff, 1)
+      graphics.fillCircle(0, 0, 3)
+      graphics.generateTexture('lightning_projectile', 12, 12)
       graphics.destroy()
     }
 
@@ -202,6 +257,27 @@ export class LightningProjectile extends Projectile {
 
     // 添加发光效果
     this.setBlendMode(Phaser.BlendModes.ADD)
+    this.setScale(1.3)
+    
+    // 添加电火花效果
+    this.createLightningEffect()
+  }
+
+  private createLightningEffect(): void {
+    const particles = this.scene.add.particles(this.x, this.y, 'particle', {
+      speed: { min: 30, max: 80 },
+      scale: { start: 0.5, end: 0 },
+      tint: [0xffff00, 0xffffff],
+      lifespan: 200,
+      frequency: 30,
+      follow: this,
+      blendMode: 'ADD',
+    })
+
+    this.once('destroy', () => {
+      particles.stop()
+      this.scene.time.delayedCall(200, () => particles.destroy())
+    })
   }
 }
 
@@ -214,9 +290,14 @@ export class EarthProjectile extends Projectile {
     // 创建占位图形
     if (!scene.textures.exists('earth_projectile')) {
       const graphics = scene.add.graphics()
+      // 岩石形状
       graphics.fillStyle(0x886644, 1)
-      graphics.fillRect(-6, -6, 12, 12)
-      graphics.generateTexture('earth_projectile', 12, 12)
+      graphics.fillRect(-7, -7, 14, 14)
+      graphics.fillStyle(0xaa8866, 1)
+      graphics.fillRect(-5, -5, 10, 10)
+      graphics.fillStyle(0x664422, 1)
+      graphics.fillRect(-3, -3, 6, 6)
+      graphics.generateTexture('earth_projectile', 14, 14)
       graphics.destroy()
     }
 
@@ -225,6 +306,15 @@ export class EarthProjectile extends Projectile {
       elementType: 'earth',
       lifespan: 3000,
       speed: 250,
+    })
+
+    this.setScale(1.3)
+    // 添加旋转效果
+    this.scene.tweens.add({
+      targets: this,
+      angle: 360,
+      duration: 1000,
+      repeat: -1,
     })
   }
 }
