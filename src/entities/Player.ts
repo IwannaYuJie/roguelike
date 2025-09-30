@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { FireProjectile } from './Projectile'
 
 /**
  * `Player` 类负责玩家角色的所有逻辑：移动、生命值、冲刺技能等。
@@ -14,6 +15,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   public maxHealth: number = 100
   public currentHealth: number = 100
   public moveSpeed: number = 160
+
+  // 经验与等级系统
+  public currentExp: number = 0
+  public currentLevel: number = 1
+  public expToNextLevel: number = 10
+
+  // 攻击系统
+  public attackDamage: number = 15
+  public attackCooldown: number = 1000 // 毫秒
+  public attackRange: number = 400 // 攻击范围
+  private lastAttackTime: number = 0
+  private canAttack: boolean = true
 
   // 冲刺技能
   public dashSpeed: number = 400
@@ -89,11 +102,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   /**
-   * 每帧更新：处理移动、冲刺等逻辑。
+   * 每帧更新：处理移动、冲刺、攻击等逻辑。
    */
-  update(_time: number, _delta: number): void {
+  update(time: number, _delta: number): void {
     this.handleMovement()
     this.handleDash()
+    this.handleAutoAttack(time)
   }
 
   /**
@@ -229,5 +243,87 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   public heal(amount: number): void {
     this.currentHealth = Math.min(this.maxHealth, this.currentHealth + amount)
     this.emit('healthChanged', this.currentHealth, this.maxHealth)
+  }
+
+  /**
+   * 处理自动攻击逻辑。
+   * 自动朝最近的敌人发射投射物。
+   */
+  private handleAutoAttack(time: number): void {
+    // 检查冷却时间
+    if (time - this.lastAttackTime < this.attackCooldown) {
+      return
+    }
+
+    if (!this.canAttack) return
+
+    // 触发攻击事件，让GameScene处理寻找目标和发射投射物
+    this.emit('requestAttack')
+    this.lastAttackTime = time
+  }
+
+  /**
+   * 发射投射物到指定方向。
+   * 由GameScene调用，传入目标方向。
+   */
+  public fireProjectile(direction: Phaser.Math.Vector2): void {
+    // 创建火焰投射物（默认元素）
+    const projectile = new FireProjectile(this.scene, this.x, this.y)
+    projectile.launch(direction)
+
+    // 触发投射物创建事件，让GameScene处理碰撞检测
+    this.emit('projectileCreated', projectile)
+  }
+
+  /**
+   * 获得经验值。
+   */
+  public gainExp(amount: number): void {
+    this.currentExp += amount
+
+    // 触发经验变化事件
+    this.emit('expChanged', this.currentExp, this.expToNextLevel)
+
+    // 检查是否升级
+    while (this.currentExp >= this.expToNextLevel) {
+      this.levelUp()
+    }
+  }
+
+  /**
+   * 升级处理。
+   */
+  private levelUp(): void {
+    this.currentExp -= this.expToNextLevel
+    this.currentLevel++
+
+    // 计算下一级所需经验（指数增长）
+    this.expToNextLevel = Math.floor(10 * Math.pow(1.5, this.currentLevel - 1))
+
+    // 触发升级事件
+    this.emit('levelUp', this.currentLevel)
+
+    // TODO: 显示升级选择界面
+  }
+
+  /**
+   * 获取当前等级。
+   */
+  public getLevel(): number {
+    return this.currentLevel
+  }
+
+  /**
+   * 获取当前经验值。
+   */
+  public getExp(): number {
+    return this.currentExp
+  }
+
+  /**
+   * 获取升级所需经验值。
+   */
+  public getExpToNextLevel(): number {
+    return this.expToNextLevel
   }
 }

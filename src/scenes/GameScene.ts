@@ -1,6 +1,8 @@
 import Phaser from 'phaser'
 import { Player } from '../entities/Player'
-import { Enemy, Swarmling, FrostBat } from '../entities/Enemy'
+import { Enemy, Swarmling, FrostBat, RockGolem } from '../entities/Enemy'
+import { Projectile } from '../entities/Projectile'
+import { ExpGem } from '../entities/ExpGem'
 
 /**
  * `GameScene` 承载核心游戏循环：玩家控制、敌人生成、元素能力、
@@ -14,28 +16,46 @@ import { Enemy, Swarmling, FrostBat } from '../entities/Enemy'
 export class GameScene extends Phaser.Scene {
   private player?: Player
   private enemies: Phaser.GameObjects.Group
+  private projectiles: Phaser.GameObjects.Group
+  private expGems: Phaser.GameObjects.Group
 
   // 游戏状态
   private gameTime: number = 0
   private spawnTimer: number = 0
   private spawnInterval: number = 2000 // 每2秒生成一波敌人
+  private killCount: number = 0
 
   constructor() {
     super('GameScene')
     this.enemies = {} as Phaser.GameObjects.Group
+    this.projectiles = {} as Phaser.GameObjects.Group
+    this.expGems = {} as Phaser.GameObjects.Group
   }
 
   create(): void {
     // 设置世界边界
     this.physics.world.setBounds(0, 0, 960, 540)
 
+    // 创建通用粒子纹理
+    this.createParticleTexture()
+
     // 初始化玩家
     this.createPlayer()
 
-    // 初始化敌人组
+    // 初始化对象组
     this.enemies = this.add.group({
       classType: Enemy,
       runChildUpdate: true, // 自动调用每个敌人的update方法
+    })
+
+    this.projectiles = this.add.group({
+      classType: Projectile,
+      runChildUpdate: true,
+    })
+
+    this.expGems = this.add.group({
+      classType: ExpGem,
+      runChildUpdate: true,
     })
 
     // 设置碰撞检测
@@ -56,6 +76,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * 创建通用粒子纹理。
+   */
+  private createParticleTexture(): void {
+    if (!this.textures.exists('particle')) {
+      const graphics = this.add.graphics()
+      graphics.fillStyle(0xffffff, 1)
+      graphics.fillCircle(4, 4, 4)
+      graphics.generateTexture('particle', 8, 8)
+      graphics.destroy()
+    }
+  }
+
+  /**
    * 创建玩家实例。
    */
   private createPlayer(): void {
@@ -64,6 +97,10 @@ export class GameScene extends Phaser.Scene {
     // 监听玩家事件
     this.player.on('playerDied', this.onPlayerDied, this)
     this.player.on('healthChanged', this.onPlayerHealthChanged, this)
+    this.player.on('requestAttack', this.onPlayerRequestAttack, this)
+    this.player.on('projectileCreated', this.onProjectileCreated, this)
+    this.player.on('expChanged', this.onPlayerExpChanged, this)
+    this.player.on('levelUp', this.onPlayerLevelUp, this)
   }
 
   /**
@@ -77,6 +114,24 @@ export class GameScene extends Phaser.Scene {
       this.player,
       this.enemies,
       this.onPlayerEnemyCollision as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
+      undefined,
+      this
+    )
+
+    // 投射物与敌人的碰撞
+    this.physics.add.overlap(
+      this.projectiles,
+      this.enemies,
+      this.onProjectileEnemyCollision as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
+      undefined,
+      this
+    )
+
+    // 玩家与经验宝石的碰撞
+    this.physics.add.overlap(
+      this.player,
+      this.expGems,
+      this.onPlayerExpGemCollision as Phaser.Types.Physics.Arcade.ArcadePhysicsCallback,
       undefined,
       this
     )
@@ -181,16 +236,25 @@ export class GameScene extends Phaser.Scene {
         break
     }
 
-    // 随机生成不同类型的敌人
-    const enemyType = Phaser.Math.Between(0, 10)
+    // 随机生成不同类型的敌人（根据游戏时间调整难度）
+    const enemyType = Phaser.Math.Between(0, 100)
     let enemy: Enemy
 
-    if (enemyType < 8) {
-      // 80% 概率生成虫群
+    // 游戏时间越长，高级敌人出现概率越高
+    const gameMinutes = this.gameTime / 60000
+
+    if (enemyType < 60) {
+      // 60% 概率生成虫群
       enemy = new Swarmling(this, x, y)
-    } else {
-      // 20% 概率生成冰霜蝙蝠
+    } else if (enemyType < 85) {
+      // 25% 概率生成冰霜蝙蝠
       enemy = new FrostBat(this, x, y)
+    } else if (gameMinutes > 2) {
+      // 15% 概率生成岩石魔像（游戏2分钟后出现）
+      enemy = new RockGolem(this, x, y)
+    } else {
+      // 早期用虫群替代
+      enemy = new Swarmling(this, x, y)
     }
 
     // 设置追踪目标为玩家
@@ -204,10 +268,159 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * 玩家请求攻击回调。
+   */
+  private onPlayerRequestAttack(): void {
+    if (!this.player) return
+
+    // 寻找最近的敌人
+    const nearestEnemy = this.findNearestEnemy()
+    if (!nearestEnemy) return
+
+    // 计算攻击方向
+    const direction = new Phaser.Math.Vector2(
+      nearestEnemy.x - this.player.x,
+      nearestEnemy.y - this.player.y
+    )
+
+    // 发射投射物
+    this.player.fireProjectile(direction)
+  }
+
+  /**
+   * 投射物创建回调。
+   */
+  private onProjectileCreated(projectile: Projectile): void {
+    this.projectiles.add(projectile)
+  }
+
+  /**
+   * 投射物与敌人碰撞回调。
+   */
+  private onProjectileEnemyCollision(
+    projectileObj: Phaser.Types.Physics.Arcade.GameObjectWithBody,
+    enemyObj: Phaser.Types.Physics.Arcade.GameObjectWithBody
+  ): void {
+    const projectile = projectileObj as Projectile
+    const enemy = enemyObj as Enemy
+
+    // 敌人受到伤害（应用元素抗性）
+    enemy.takeDamage(projectile.damage, projectile.elementType)
+
+    // 投射物击中效果
+    projectile.onHit()
+  }
+
+  /**
+   * 玩家与经验宝石碰撞回调。
+   */
+  private onPlayerExpGemCollision(
+    playerObj: Phaser.Types.Physics.Arcade.GameObjectWithBody,
+    gemObj: Phaser.Types.Physics.Arcade.GameObjectWithBody
+  ): void {
+    const player = playerObj as Player
+    const gem = gemObj as ExpGem
+
+    // 玩家获得经验
+    player.gainExp(gem.expValue)
+
+    // 宝石被拾取
+    gem.onCollected()
+  }
+
+  /**
+   * 玩家经验变化回调。
+   */
+  private onPlayerExpChanged(current: number, toNext: number): void {
+    this.events.emit('updatePlayerExp', current, toNext)
+  }
+
+  /**
+   * 玩家升级回调。
+   */
+  private onPlayerLevelUp(level: number): void {
+    // 显示升级提示
+    const text = this.add.text(
+      480,
+      200,
+      `等级提升！Lv.${level}`,
+      {
+        fontFamily: 'sans-serif',
+        fontSize: '32px',
+        color: '#ffff00',
+        stroke: '#000000',
+        strokeThickness: 4,
+      }
+    )
+    text.setOrigin(0.5)
+    text.setDepth(1000)
+
+    // 升级文字动画
+    this.tweens.add({
+      targets: text,
+      y: 150,
+      alpha: 0,
+      scale: 1.5,
+      duration: 1500,
+      ease: 'Power2',
+      onComplete: () => {
+        text.destroy()
+      },
+    })
+
+    // 触发UI更新
+    this.events.emit('playerLevelUp', level)
+
+    // TODO: 显示升级选择界面
+  }
+
+  /**
+   * 寻找最近的敌人。
+   */
+  private findNearestEnemy(): Enemy | null {
+    if (!this.player) return null
+
+    let nearestEnemy: Enemy | null = null
+    let nearestDistance = this.player.attackRange
+
+    this.enemies.getChildren().forEach((enemyObj) => {
+      const enemy = enemyObj as Enemy
+      const distance = Phaser.Math.Distance.Between(
+        this.player!.x,
+        this.player!.y,
+        enemy.x,
+        enemy.y
+      )
+
+      if (distance < nearestDistance) {
+        nearestDistance = distance
+        nearestEnemy = enemy
+      }
+    })
+
+    return nearestEnemy
+  }
+
+  /**
    * 敌人死亡回调。
    */
   private onEnemyDied(enemy: Enemy): void {
-    // TODO: 生成经验值水晶，更新击杀统计
-    this.events.emit('enemyKilled', enemy.getTypeName(), enemy.expValue)
+    // 生成经验宝石
+    this.spawnExpGem(enemy.x, enemy.y, enemy.expValue)
+
+    // 更新击杀统计
+    this.killCount++
+    this.events.emit('enemyKilled', enemy.getTypeName(), this.killCount)
+  }
+
+  /**
+   * 生成经验宝石。
+   */
+  private spawnExpGem(x: number, y: number, expValue: number): void {
+    const gem = new ExpGem(this, x, y, expValue)
+    if (this.player) {
+      gem.setTarget(this.player)
+    }
+    this.expGems.add(gem)
   }
 }

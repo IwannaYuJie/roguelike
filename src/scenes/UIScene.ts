@@ -6,6 +6,7 @@ import Phaser from 'phaser'
  * 
  * 当前阶段实现：
  * - 生命值显示
+ * - 经验条与等级显示
  * - 游戏计时器
  * - 击杀统计
  */
@@ -13,9 +14,14 @@ export class UIScene extends Phaser.Scene {
   private healthText?: Phaser.GameObjects.Text
   private timerText?: Phaser.GameObjects.Text
   private killCountText?: Phaser.GameObjects.Text
+  private levelText?: Phaser.GameObjects.Text
+  private expBar?: Phaser.GameObjects.Graphics
+  private expBarBg?: Phaser.GameObjects.Graphics
 
   private gameTime: number = 0
   private killCount: number = 0
+  private currentExp: number = 0
+  private expToNextLevel: number = 10
 
   constructor() {
     super('UIScene')
@@ -60,10 +66,37 @@ export class UIScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(1000)
 
+    // 等级显示
+    this.levelText = this.add
+      .text(16, 50, 'Lv.1', {
+        fontFamily: 'sans-serif',
+        fontSize: '20px',
+        color: '#ffff00',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setScrollFactor(0)
+      .setDepth(1000)
+
+    // 经验条背景
+    this.expBarBg = this.add.graphics()
+    this.expBarBg.fillStyle(0x333333, 0.8)
+    this.expBarBg.fillRect(16, 80, 200, 12)
+    this.expBarBg.setScrollFactor(0)
+    this.expBarBg.setDepth(999)
+
+    // 经验条
+    this.expBar = this.add.graphics()
+    this.expBar.setScrollFactor(0)
+    this.expBar.setDepth(1000)
+    this.updateExpBar()
+
     // 监听GameScene的事件
     const gameScene = this.scene.get('GameScene')
     gameScene.events.on('updatePlayerHealth', this.updateHealthDisplay, this)
     gameScene.events.on('enemyKilled', this.onEnemyKilled, this)
+    gameScene.events.on('updatePlayerExp', this.updateExpDisplay, this)
+    gameScene.events.on('playerLevelUp', this.onPlayerLevelUp, this)
   }
 
   update(_time: number, delta: number): void {
@@ -109,10 +142,58 @@ export class UIScene extends Phaser.Scene {
   /**
    * 敌人被击杀回调。
    */
-  private onEnemyKilled(_enemyType: string, _expValue: number): void {
-    this.killCount++
+  private onEnemyKilled(_enemyType: string, totalKills: number): void {
+    this.killCount = totalKills
     if (this.killCountText) {
       this.killCountText.setText(`击杀: ${this.killCount}`)
+    }
+  }
+
+  /**
+   * 更新经验显示。
+   */
+  private updateExpDisplay(current: number, toNext: number): void {
+    this.currentExp = current
+    this.expToNextLevel = toNext
+    this.updateExpBar()
+  }
+
+  /**
+   * 更新经验条。
+   */
+  private updateExpBar(): void {
+    if (!this.expBar) return
+
+    this.expBar.clear()
+
+    // 计算经验百分比
+    const percent = Math.min(this.currentExp / this.expToNextLevel, 1)
+    const barWidth = 200 * percent
+
+    // 绘制经验条
+    this.expBar.fillStyle(0x00aaff, 1)
+    this.expBar.fillRect(16, 80, barWidth, 12)
+
+    // 绘制边框
+    this.expBar.lineStyle(2, 0xffffff, 0.5)
+    this.expBar.strokeRect(16, 80, 200, 12)
+  }
+
+  /**
+   * 玩家升级回调。
+   */
+  private onPlayerLevelUp(level: number): void {
+    if (this.levelText) {
+      this.levelText.setText(`Lv.${level}`)
+
+      // 升级闪烁效果
+      this.tweens.add({
+        targets: this.levelText,
+        scale: { from: 1, to: 1.3 },
+        duration: 200,
+        yoyo: true,
+        repeat: 2,
+      })
     }
   }
 }
