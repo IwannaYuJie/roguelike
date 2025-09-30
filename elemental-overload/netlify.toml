@@ -1,0 +1,15 @@
+# Netlify 部署配置文件
+# 根据设计文档第八部分配置，确保Vite项目能正确构建与部署。
+
+[build]
+  # Vite构建命令，会先进行TypeScript编译检查，然后打包生产资源到dist目录
+  command = "npm run build"
+  # 静态资源发布目录
+  publish = "dist"
+
+# SPA重定向规则：将所有请求重定向到index.html，让前端路由接管
+# 这对于单页应用至关重要，防止刷新页面时出现404错误
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
