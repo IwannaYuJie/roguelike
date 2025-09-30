@@ -1,10 +1,23 @@
 import Phaser from 'phaser'
 import { Player } from '../entities/Player'
-import { Enemy, Swarmling, FrostBat, RockGolem } from '../entities/Enemy'
+import {
+  Enemy,
+  Swarmling,
+  FrostBat,
+  RockGolem,
+  EliteSwarmling,
+  EliteFrostBat,
+  EliteRockGolem,
+  BossLavaTurtle,
+  BossChaosAlchemist,
+} from '../entities/Enemy'
 import { Projectile } from '../entities/Projectile'
 import { ExpGem } from '../entities/ExpGem'
 import { AbilitySystem } from '../systems/AbilitySystem'
 import { PassiveItemSystem } from '../systems/PassiveItemSystem'
+import { WaveSystem } from '../systems/WaveSystem'
+import type { WaveConfig } from '../systems/WaveSystem'
+import { ConductorSystem } from '../systems/ConductorSystem'
 import { LevelUpScene } from './LevelUpScene'
 
 /**
@@ -23,12 +36,15 @@ export class GameScene extends Phaser.Scene {
   private expGems: Phaser.GameObjects.Group
   private abilitySystem?: AbilitySystem
   private passiveItemSystem?: PassiveItemSystem
+  private waveSystem?: WaveSystem
+  private conductorSystem?: ConductorSystem
 
   // 游戏状态
   private gameTime: number = 0
   private spawnTimer: number = 0
   private spawnInterval: number = 2000 // 每2秒生成一波敌人
   private killCount: number = 0
+  private isWaveSystemActive: boolean = true // 是否启用波次系统
 
   constructor() {
     super('GameScene')
@@ -108,6 +124,12 @@ export class GameScene extends Phaser.Scene {
     // 初始化被动道具系统
     this.passiveItemSystem = new PassiveItemSystem()
 
+    // 初始化波次系统
+    this.waveSystem = new WaveSystem(this)
+
+    // 初始化指挥家系统
+    this.conductorSystem = new ConductorSystem(this)
+
     // 给玩家一个初始能力（火焰弹）
     this.abilitySystem.equipAbility('fireball')
 
@@ -118,6 +140,9 @@ export class GameScene extends Phaser.Scene {
     this.player.on('projectileCreated', this.onProjectileCreated, this)
     this.player.on('expChanged', this.onPlayerExpChanged, this)
     this.player.on('levelUp', this.onPlayerLevelUp, this)
+
+    // 监听波次系统事件
+    this.events.on('waveTriggered', this.onWaveTriggered, this)
   }
 
   /**
@@ -166,6 +191,11 @@ export class GameScene extends Phaser.Scene {
 
     // 玩家受到伤害（冲刺时有无敌帧）
     player.takeDamage(enemy.damage)
+
+    // 记录伤害到指挥家系统
+    if (this.conductorSystem) {
+      this.conductorSystem.recordDamage(enemy.damage)
+    }
   }
 
   /**
@@ -205,11 +235,23 @@ export class GameScene extends Phaser.Scene {
       this.abilitySystem.update(time)
     }
 
-    // 敌人生成系统
-    this.spawnTimer += delta
-    if (this.spawnTimer >= this.spawnInterval) {
-      this.spawnTimer = 0
-      this.spawnEnemyWave()
+    // 更新波次系统
+    if (this.waveSystem && this.isWaveSystemActive) {
+      this.waveSystem.update(delta)
+    }
+
+    // 更新指挥家系统
+    if (this.conductorSystem) {
+      this.conductorSystem.update(time, delta)
+    }
+
+    // 基础敌人生成系统（作为波次系统的补充）
+    if (!this.isWaveSystemActive) {
+      this.spawnTimer += delta
+      if (this.spawnTimer >= this.spawnInterval) {
+        this.spawnTimer = 0
+        this.spawnEnemyWave()
+      }
     }
   }
 
@@ -527,6 +569,98 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * 波次触发回调。
+   */
+  private onWaveTriggered(wave: WaveConfig): void {
+    // 根据波次配置生成敌人
+    wave.enemies.forEach((enemyConfig) => {
+      const count = this.conductorSystem
+        ? this.conductorSystem.adjustEnemyCount(enemyConfig.count)
+        : enemyConfig.count
+      const interval = enemyConfig.interval || 500
+
+      // 分批生成敌人
+      for (let i = 0; i < count; i++) {
+        this.time.delayedCall(i * interval, () => {
+          this.spawnEnemyByType(enemyConfig.type)
+        })
+      }
+    })
+  }
+
+  /**
+   * 根据类型生成敌人。
+   */
+  private spawnEnemyByType(type: string): void {
+    if (!this.player) return
+
+    // 随机选择屏幕边缘位置
+    const edge = Phaser.Math.Between(0, 3)
+    let x = 0
+    let y = 0
+
+    switch (edge) {
+      case 0: // 上边
+        x = Phaser.Math.Between(0, 960)
+        y = -20
+        break
+      case 1: // 右边
+        x = 980
+        y = Phaser.Math.Between(0, 540)
+        break
+      case 2: // 下边
+        x = Phaser.Math.Between(0, 960)
+        y = 560
+        break
+      case 3: // 左边
+        x = -20
+        y = Phaser.Math.Between(0, 540)
+        break
+    }
+
+    let enemy: Enemy
+
+    // 根据类型创建敌人
+    switch (type) {
+      case 'swarmling':
+        enemy = new Swarmling(this, x, y)
+        break
+      case 'frostbat':
+        enemy = new FrostBat(this, x, y)
+        break
+      case 'rockgolem':
+        enemy = new RockGolem(this, x, y)
+        break
+      case 'elite_swarmling':
+        enemy = new EliteSwarmling(this, x, y)
+        break
+      case 'elite_frostbat':
+        enemy = new EliteFrostBat(this, x, y)
+        break
+      case 'elite_rockgolem':
+        enemy = new EliteRockGolem(this, x, y)
+        break
+      case 'boss_lava_turtle':
+        enemy = new BossLavaTurtle(this, x, y)
+        break
+      case 'boss_chaos_alchemist':
+        enemy = new BossChaosAlchemist(this, x, y)
+        break
+      default:
+        enemy = new Swarmling(this, x, y)
+    }
+
+    // 设置追踪目标为玩家
+    enemy.setTarget(this.player)
+
+    // 监听敌人死亡事件
+    enemy.on('enemyDied', this.onEnemyDied, this)
+
+    // 添加到敌人组
+    this.enemies.add(enemy)
+  }
+
+  /**
    * 敌人死亡回调。
    */
   private onEnemyDied(enemy: Enemy): void {
@@ -538,6 +672,11 @@ export class GameScene extends Phaser.Scene {
       // 30%概率掉落1-3金币
       const goldAmount = Phaser.Math.Between(1, 3)
       this.player.gainGold(goldAmount)
+    }
+
+    // 记录击杀到指挥家系统
+    if (this.conductorSystem) {
+      this.conductorSystem.recordKill()
     }
 
     // 更新击杀统计

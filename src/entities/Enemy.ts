@@ -419,3 +419,158 @@ export class RockGolem extends Enemy {
     return 'RockGolem'
   }
 }
+
+// ==================== 精英敌人 ====================
+
+/**
+ * `EliteSwarmling` - 精英虫群。
+ * 更强大的虫群变种，生命值和伤害更高。
+ */
+export class EliteSwarmling extends Swarmling {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y)
+    
+    // 精英属性：2倍生命值和伤害
+    this.maxHealth = 20
+    this.currentHealth = 20
+    this.damage = 20
+    this.expValue = 5
+    this.moveSpeed = 120
+    
+    // 精英标记（金色光环）
+    this.setTint(0xffaa00)
+    this.setScale(1.3)
+  }
+
+  public getTypeName(): string {
+    return 'EliteSwarmling'
+  }
+}
+
+/**
+ * `EliteFrostBat` - 精英冰霜蝙蝠。
+ */
+export class EliteFrostBat extends FrostBat {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y)
+    
+    this.maxHealth = 40
+    this.currentHealth = 40
+    this.damage = 25
+    this.expValue = 8
+    this.moveSpeed = 140
+    
+    this.setTint(0x00ffff)
+    this.setScale(1.3)
+  }
+
+  public getTypeName(): string {
+    return 'EliteFrostBat'
+  }
+}
+
+/**
+ * `EliteRockGolem` - 精英岩石魔像。
+ */
+export class EliteRockGolem extends RockGolem {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y)
+    
+    this.maxHealth = 100
+    this.currentHealth = 100
+    this.damage = 30
+    this.expValue = 15
+    this.moveSpeed = 60
+    
+    this.setTint(0xff6600)
+    this.setScale(1.5)
+  }
+
+  public getTypeName(): string {
+    return 'EliteRockGolem'
+  }
+}
+
+// ==================== 首领 ====================
+
+/**
+ * `BossLavaTurtle` - 熔岩巨龟（10分钟首领）。
+ * 巨大的熔岩生物，拥有高生命值和强大的范围攻击。
+ */
+export class BossLavaTurtle extends Enemy {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    // 创建占位图形
+    if (!scene.textures.exists('boss_lava_turtle')) {
+      const graphics = scene.add.graphics()
+      graphics.fillStyle(0xff4400, 1)
+      graphics.fillCircle(0, 0, 40)
+      graphics.fillStyle(0x886644, 1)
+      graphics.fillCircle(0, 0, 30)
+      graphics.generateTexture('boss_lava_turtle', 80, 80)
+      graphics.destroy()
+    }
+
+    super(scene, x, y, 'boss_lava_turtle', {
+      health: 500,
+      speed: 30,
+      damage: 40,
+      expValue: 100,
+    })
+
+    // 首领对所有元素有一定抗性
+    this.setElementResistance('fire', 0.5) // 50%抗性
+    this.setElementResistance('frost', 1.2)
+    this.setElementResistance('lightning', 1.0)
+    this.setElementResistance('earth', 0.8)
+
+    this.behaviorMode = 'chase'
+    this.setScale(2)
+    this.setTint(0xff0000)
+  }
+
+  public getTypeName(): string {
+    return 'BossLavaTurtle'
+  }
+}
+
+/**
+ * `BossChaosAlchemist` - 炼金之混沌（最终首领）。
+ * 游戏的最终挑战，拥有极高的生命值和多样化的攻击模式。
+ */
+export class BossChaosAlchemist extends Enemy {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    // 创建占位图形
+    if (!scene.textures.exists('boss_chaos_alchemist')) {
+      const graphics = scene.add.graphics()
+      graphics.fillStyle(0x8800ff, 1)
+      graphics.fillCircle(0, 0, 50)
+      graphics.fillStyle(0xff00ff, 0.7)
+      graphics.fillCircle(0, 0, 40)
+      graphics.fillStyle(0xffffff, 1)
+      graphics.fillCircle(0, 0, 20)
+      graphics.generateTexture('boss_chaos_alchemist', 100, 100)
+      graphics.destroy()
+    }
+
+    super(scene, x, y, 'boss_chaos_alchemist', {
+      health: 2000,
+      speed: 50,
+      damage: 60,
+      expValue: 500,
+    })
+
+    // 最终首领对所有元素都有抗性
+    this.setElementResistance('fire', 0.8)
+    this.setElementResistance('frost', 0.8)
+    this.setElementResistance('lightning', 0.8)
+    this.setElementResistance('earth', 0.8)
+
+    this.behaviorMode = 'circle'
+    this.setScale(2.5)
+    this.setTint(0xff00ff)
+  }
+
+  public getTypeName(): string {
+    return 'BossChaosAlchemist'
+  }
+}
