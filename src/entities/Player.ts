@@ -21,12 +21,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   public currentLevel: number = 1
   public expToNextLevel: number = 10
 
-  // 攻击系统
-  public attackDamage: number = 15
-  public attackCooldown: number = 1000 // 毫秒
+  // 攻击系统（现在由AbilitySystem管理）
   public attackRange: number = 400 // 攻击范围
-  private lastAttackTime: number = 0
-  private canAttack: boolean = true
 
   // 冲刺技能
   public dashSpeed: number = 400
@@ -102,12 +98,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   /**
-   * 每帧更新：处理移动、冲刺、攻击等逻辑。
+   * 每帧更新：处理移动、冲刺等逻辑。
+   * 注意：攻击现在由AbilitySystem管理。
    */
-  update(time: number, _delta: number): void {
+  update(_time: number, _delta: number): void {
     this.handleMovement()
     this.handleDash()
-    this.handleAutoAttack(time)
   }
 
   /**
@@ -245,22 +241,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.emit('healthChanged', this.currentHealth, this.maxHealth)
   }
 
-  /**
-   * 处理自动攻击逻辑。
-   * 自动朝最近的敌人发射投射物。
-   */
-  private handleAutoAttack(time: number): void {
-    // 检查冷却时间
-    if (time - this.lastAttackTime < this.attackCooldown) {
-      return
-    }
-
-    if (!this.canAttack) return
-
-    // 触发攻击事件，让GameScene处理寻找目标和发射投射物
-    this.emit('requestAttack')
-    this.lastAttackTime = time
-  }
 
   /**
    * 发射投射物到指定方向。

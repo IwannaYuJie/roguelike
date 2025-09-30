@@ -4,6 +4,7 @@ import { BootScene } from './scenes/BootScene'
 import { MainMenuScene } from './scenes/MainMenuScene'
 import { GameScene } from './scenes/GameScene'
 import { UIScene } from './scenes/UIScene'
+import { LevelUpScene } from './scenes/LevelUpScene'
 
 // 初始化根容器，确保Phaser可以正确挂载到#app节点上。
 const root = document.querySelector<HTMLDivElement>('#app')
@@ -34,7 +35,7 @@ const config: Phaser.Types.Core.GameConfig = {
       gravity: { x: 0, y: 0 },
     },
   },
-  scene: [BootScene, MainMenuScene, GameScene, UIScene],
+  scene: [BootScene, MainMenuScene, GameScene, UIScene, LevelUpScene],
 }
 
 // 启动Phaser游戏实例。

@@ -3,6 +3,8 @@ import { Player } from '../entities/Player'
 import { Enemy, Swarmling, FrostBat, RockGolem } from '../entities/Enemy'
 import { Projectile } from '../entities/Projectile'
 import { ExpGem } from '../entities/ExpGem'
+import { AbilitySystem } from '../systems/AbilitySystem'
+import { LevelUpScene } from './LevelUpScene'
 
 /**
  * `GameScene` 承载核心游戏循环：玩家控制、敌人生成、元素能力、
@@ -18,6 +20,7 @@ export class GameScene extends Phaser.Scene {
   private enemies: Phaser.GameObjects.Group
   private projectiles: Phaser.GameObjects.Group
   private expGems: Phaser.GameObjects.Group
+  private abilitySystem?: AbilitySystem
 
   // 游戏状态
   private gameTime: number = 0
@@ -64,6 +67,9 @@ export class GameScene extends Phaser.Scene {
     // 启动UI场景（与GameScene并行运行）
     this.scene.launch('UIScene')
 
+    // 启动升级场景（默认隐藏）
+    this.scene.launch('LevelUpScene')
+
     // 显示调试信息
     this.add
       .text(16, 500, 'WASD移动 | 空格冲刺', {
@@ -93,6 +99,12 @@ export class GameScene extends Phaser.Scene {
    */
   private createPlayer(): void {
     this.player = new Player(this, 480, 270)
+
+    // 初始化能力系统
+    this.abilitySystem = new AbilitySystem(this, this.player)
+
+    // 给玩家一个初始能力（火焰弹）
+    this.abilitySystem.equipAbility('fireball')
 
     // 监听玩家事件
     this.player.on('playerDied', this.onPlayerDied, this)
@@ -181,6 +193,11 @@ export class GameScene extends Phaser.Scene {
     // 更新玩家
     if (this.player) {
       this.player.update(time, delta)
+    }
+
+    // 更新能力系统
+    if (this.abilitySystem) {
+      this.abilitySystem.update(time)
     }
 
     // 敌人生成系统
@@ -371,7 +388,66 @@ export class GameScene extends Phaser.Scene {
     // 触发UI更新
     this.events.emit('playerLevelUp', level)
 
-    // TODO: 显示升级选择界面
+    // 显示升级选择界面
+    this.showLevelUpScreen()
+  }
+
+  /**
+   * 显示升级选择界面。
+   */
+  private showLevelUpScreen(): void {
+    if (!this.abilitySystem) return
+
+    // 暂停游戏
+    this.scene.pause()
+
+    // 获取随机能力选项
+    const options = this.abilitySystem.getRandomAbilityOptions(3)
+
+    // 显示升级界面
+    const levelUpScene = this.scene.get('LevelUpScene') as LevelUpScene
+    levelUpScene.showLevelUp(options, (abilityId: string) => {
+      // 玩家选择了一个能力
+      this.abilitySystem!.equipAbility(abilityId)
+
+      // 显示获得提示
+      const ability = options.find((a) => a.id === abilityId)
+      if (ability) {
+        this.showAbilityAcquiredNotification(ability.name, ability.icon)
+      }
+    })
+  }
+
+  /**
+   * 显示能力获得通知。
+   */
+  private showAbilityAcquiredNotification(name: string, icon: string): void {
+    const text = this.add.text(
+      480,
+      270,
+      `${icon} 获得能力：${name}`,
+      {
+        fontFamily: 'sans-serif',
+        fontSize: '24px',
+        color: '#00ff00',
+        stroke: '#000000',
+        strokeThickness: 4,
+      }
+    )
+    text.setOrigin(0.5)
+    text.setDepth(2000)
+
+    // 渐隐动画
+    this.tweens.add({
+      targets: text,
+      alpha: 0,
+      y: 220,
+      duration: 2000,
+      ease: 'Power2',
+      onComplete: () => {
+        text.destroy()
+      },
+    })
   }
 
   /**
