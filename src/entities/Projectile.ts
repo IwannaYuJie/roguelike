@@ -228,3 +228,164 @@ export class EarthProjectile extends Projectile {
     })
   }
 }
+
+// ==================== 衍生元素投射物 ====================
+
+/**
+ * `LavaProjectile` - 熔岩投射物（火+土）。
+ * 缓慢移动，在地面留下燃烧区域。
+ */
+export class LavaProjectile extends Projectile {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    if (!scene.textures.exists('lava_projectile')) {
+      const graphics = scene.add.graphics()
+      graphics.fillStyle(0xff6600, 1)
+      graphics.fillCircle(0, 0, 8)
+      graphics.fillStyle(0xff0000, 0.7)
+      graphics.fillCircle(0, 0, 5)
+      graphics.generateTexture('lava_projectile', 16, 16)
+      graphics.destroy()
+    }
+
+    super(scene, x, y, 'lava_projectile', {
+      damage: 25,
+      elementType: 'lava',
+      lifespan: 4000,
+      speed: 200,
+    })
+
+    this.setBlendMode(Phaser.BlendModes.ADD)
+    this.setScale(1.2)
+  }
+}
+
+/**
+ * `PlasmaProjectile` - 等离子投射物（火+电）。
+ * 高速穿透，造成巨额伤害。
+ */
+export class PlasmaProjectile extends Projectile {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    if (!scene.textures.exists('plasma_projectile')) {
+      const graphics = scene.add.graphics()
+      graphics.fillStyle(0xff00ff, 1)
+      graphics.fillCircle(0, 0, 7)
+      graphics.fillStyle(0xffffff, 0.8)
+      graphics.fillCircle(0, 0, 4)
+      graphics.generateTexture('plasma_projectile', 14, 14)
+      graphics.destroy()
+    }
+
+    super(scene, x, y, 'plasma_projectile', {
+      damage: 30,
+      elementType: 'plasma',
+      lifespan: 2000,
+      speed: 500,
+    })
+
+    this.setBlendMode(Phaser.BlendModes.ADD)
+  }
+}
+
+/**
+ * `CrystalProjectile` - 晶刺投射物（霜+土）。
+ * 穿刺并冰冻敌人。
+ */
+export class CrystalProjectile extends Projectile {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    if (!scene.textures.exists('crystal_projectile')) {
+      const graphics = scene.add.graphics()
+      graphics.fillStyle(0x00ffff, 1)
+      graphics.fillRect(-4, -8, 8, 16)
+      graphics.fillStyle(0xaaffff, 0.7)
+      graphics.fillRect(-2, -6, 4, 12)
+      graphics.generateTexture('crystal_projectile', 16, 16)
+      graphics.destroy()
+    }
+
+    super(scene, x, y, 'crystal_projectile', {
+      damage: 22,
+      elementType: 'crystal',
+      lifespan: 2500,
+      speed: 350,
+    })
+  }
+}
+
+/**
+ * `SuperconductorProjectile` - 超导体投射物（霜+电）。
+ * 创造超低温力场。
+ */
+export class SuperconductorProjectile extends Projectile {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    if (!scene.textures.exists('superconductor_projectile')) {
+      const graphics = scene.add.graphics()
+      graphics.fillStyle(0x0088ff, 1)
+      graphics.fillCircle(0, 0, 6)
+      graphics.lineStyle(2, 0xffff00, 1)
+      graphics.strokeCircle(0, 0, 6)
+      graphics.generateTexture('superconductor_projectile', 14, 14)
+      graphics.destroy()
+    }
+
+    super(scene, x, y, 'superconductor_projectile', {
+      damage: 18,
+      elementType: 'superconductor',
+      lifespan: 3000,
+      speed: 400,
+    })
+
+    this.setBlendMode(Phaser.BlendModes.ADD)
+  }
+}
+
+/**
+ * `BlizzardProjectile` - 暴雪投射物（火+霜）。
+ * 同时造成冰霜和火焰伤害。
+ */
+export class BlizzardProjectile extends Projectile {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    if (!scene.textures.exists('blizzard_projectile')) {
+      const graphics = scene.add.graphics()
+      graphics.fillStyle(0xaaffff, 1)
+      graphics.fillCircle(-3, 0, 5)
+      graphics.fillStyle(0xff8800, 1)
+      graphics.fillCircle(3, 0, 5)
+      graphics.generateTexture('blizzard_projectile', 16, 16)
+      graphics.destroy()
+    }
+
+    super(scene, x, y, 'blizzard_projectile', {
+      damage: 20,
+      elementType: 'blizzard',
+      lifespan: 2800,
+      speed: 280,
+    })
+  }
+}
+
+/**
+ * `StormProjectile` - 风暴投射物（电+土）。
+ * 闪电与岩石的组合攻击。
+ */
+export class StormProjectile extends Projectile {
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    if (!scene.textures.exists('storm_projectile')) {
+      const graphics = scene.add.graphics()
+      graphics.fillStyle(0x886644, 1)
+      graphics.fillRect(-5, -5, 10, 10)
+      graphics.fillStyle(0xffff00, 0.8)
+      graphics.fillCircle(0, 0, 4)
+      graphics.generateTexture('storm_projectile', 14, 14)
+      graphics.destroy()
+    }
+
+    super(scene, x, y, 'storm_projectile', {
+      damage: 28,
+      elementType: 'storm',
+      lifespan: 2200,
+      speed: 380,
+    })
+
+    this.setBlendMode(Phaser.BlendModes.ADD)
+  }
+}

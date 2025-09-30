@@ -21,6 +21,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   public currentLevel: number = 1
   public expToNextLevel: number = 10
 
+  // 金币系统
+  public gold: number = 0
+
   // 攻击系统（现在由AbilitySystem管理）
   public attackRange: number = 400 // 攻击范围
 
@@ -305,5 +308,25 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    */
   public getExpToNextLevel(): number {
     return this.expToNextLevel
+  }
+
+  /**
+   * 获得金币。
+   */
+  public gainGold(amount: number): void {
+    this.gold += amount
+    this.emit('goldChanged', this.gold)
+  }
+
+  /**
+   * 消耗金币。
+   */
+  public spendGold(amount: number): boolean {
+    if (this.gold >= amount) {
+      this.gold -= amount
+      this.emit('goldChanged', this.gold)
+      return true
+    }
+    return false
   }
 }

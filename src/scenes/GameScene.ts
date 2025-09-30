@@ -4,6 +4,7 @@ import { Enemy, Swarmling, FrostBat, RockGolem } from '../entities/Enemy'
 import { Projectile } from '../entities/Projectile'
 import { ExpGem } from '../entities/ExpGem'
 import { AbilitySystem } from '../systems/AbilitySystem'
+import { PassiveItemSystem } from '../systems/PassiveItemSystem'
 import { LevelUpScene } from './LevelUpScene'
 
 /**
@@ -21,6 +22,7 @@ export class GameScene extends Phaser.Scene {
   private projectiles: Phaser.GameObjects.Group
   private expGems: Phaser.GameObjects.Group
   private abilitySystem?: AbilitySystem
+  private passiveItemSystem?: PassiveItemSystem
 
   // 游戏状态
   private gameTime: number = 0
@@ -102,6 +104,9 @@ export class GameScene extends Phaser.Scene {
 
     // 初始化能力系统
     this.abilitySystem = new AbilitySystem(this, this.player)
+
+    // 初始化被动道具系统
+    this.passiveItemSystem = new PassiveItemSystem()
 
     // 给玩家一个初始能力（火焰弹）
     this.abilitySystem.equipAbility('fireball')
@@ -396,26 +401,70 @@ export class GameScene extends Phaser.Scene {
    * 显示升级选择界面。
    */
   private showLevelUpScreen(): void {
-    if (!this.abilitySystem) return
+    if (!this.abilitySystem || !this.passiveItemSystem) return
 
     // 暂停游戏
     this.scene.pause()
 
-    // 获取随机能力选项
-    const options = this.abilitySystem.getRandomAbilityOptions(3)
+    // 获取随机选项（能力和道具混合）
+    const abilityOptions = this.abilitySystem.getRandomAbilityOptions(2, this.passiveItemSystem)
+    const itemOptions = this.passiveItemSystem.getRandomItemOptions(1)
+
+    // 合并选项，转换为统一格式
+    const options = [
+      ...abilityOptions.map((a) => ({
+        id: a.id,
+        name: a.name,
+        description: a.description,
+        icon: a.icon,
+        rarity: a.rarity,
+        type: 'ability' as const,
+      })),
+      ...itemOptions.map((i) => ({
+        id: i.id,
+        name: i.name,
+        description: i.description,
+        icon: i.icon,
+        rarity: i.rarity,
+        type: 'item' as const,
+      })),
+    ]
 
     // 显示升级界面
     const levelUpScene = this.scene.get('LevelUpScene') as LevelUpScene
-    levelUpScene.showLevelUp(options, (abilityId: string) => {
-      // 玩家选择了一个能力
-      this.abilitySystem!.equipAbility(abilityId)
+    levelUpScene.showLevelUp(
+      options,
+      (selectedId: string, selectedType: string) => {
+        // 玩家选择了一个选项
+        if (selectedType === 'ability') {
+          this.abilitySystem!.equipAbility(selectedId)
+        } else if (selectedType === 'item') {
+          this.passiveItemSystem!.equipItem(selectedId)
+        }
 
-      // 显示获得提示
-      const ability = options.find((a) => a.id === abilityId)
-      if (ability) {
-        this.showAbilityAcquiredNotification(ability.name, ability.icon)
-      }
-    })
+        // 显示获得提示
+        const option = options.find((o) => o.id === selectedId)
+        if (option) {
+          this.showAbilityAcquiredNotification(option.name, option.icon)
+        }
+      },
+      () => {
+        // 重投回调
+        if (this.player && this.player.spendGold(10)) {
+          // 重新显示升级界面
+          this.showLevelUpScreen()
+        }
+      },
+      (banishedId: string, banishedType: string) => {
+        // 放逐回调
+        if (banishedType === 'ability') {
+          this.abilitySystem!.banishAbility(banishedId)
+        }
+        // 重新显示升级界面
+        this.showLevelUpScreen()
+      },
+      this.player?.gold || 0
+    )
   }
 
   /**
@@ -483,6 +532,13 @@ export class GameScene extends Phaser.Scene {
   private onEnemyDied(enemy: Enemy): void {
     // 生成经验宝石
     this.spawnExpGem(enemy.x, enemy.y, enemy.expValue)
+
+    // 有概率掉落金币
+    if (Phaser.Math.Between(0, 100) < 30 && this.player) {
+      // 30%概率掉落1-3金币
+      const goldAmount = Phaser.Math.Between(1, 3)
+      this.player.gainGold(goldAmount)
+    }
 
     // 更新击杀统计
     this.killCount++
